@@ -3,19 +3,15 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Users, Clock, CheckCircle2 } from 'lucide-react';
 import { differenceInDays } from 'date-fns';
-
-const statusConfig = {
-  WAITING_FOR_TESTERS: { label: 'Waiting for Testers', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-  TESTING: { label: 'Testing', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-  COMPLETED: { label: 'Completed', color: 'bg-green-100 text-green-700 border-green-200' },
-};
+import { appStatusConfig } from '../lib/status-config';
+import { REQUIRED_TESTERS, TESTING_PERIOD_DAYS } from '../lib/constants';
 
 export default function AppCard({ app }) {
-  const status = statusConfig[app.status] || statusConfig.WAITING_FOR_TESTERS;
+  const status = appStatusConfig[app.status] || appStatusConfig.WAITING_FOR_TESTERS;
   const daysElapsed = app.testing_start_date
     ? differenceInDays(new Date(), new Date(app.testing_start_date))
     : 0;
-  const daysRemaining = app.status === 'TESTING' ? Math.max(14 - daysElapsed, 0) : null;
+  const daysRemaining = app.status === 'TESTING' ? Math.max(TESTING_PERIOD_DAYS - daysElapsed, 0) : null;
 
   return (
     <Link
@@ -37,7 +33,7 @@ export default function AppCard({ app }) {
             </Badge>
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
               <Users className="w-3.5 h-3.5" />
-              {app.testers_enrolled || 0} / 12 testers
+              {app.testers_enrolled || 0} / {REQUIRED_TESTERS} testers
             </span>
             {daysRemaining !== null && (
               <span className="flex items-center gap-1 text-xs text-muted-foreground">

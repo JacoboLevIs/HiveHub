@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -10,25 +10,17 @@ import { differenceInDays, format } from 'date-fns';
 import { toast } from 'sonner';
 import LeaveTestModal from '../components/apps/LeaveTestModal';
 import TesterList from '../components/apps/TesterList';
-
-const statusConfig = {
-  WAITING_FOR_TESTERS: { label: 'Waiting for Testers', color: 'bg-amber-100 text-amber-700' },
-  TESTING: { label: 'Testing', color: 'bg-blue-100 text-blue-700' },
-  COMPLETED: { label: 'Completed', color: 'bg-green-100 text-green-700' },
-};
+import { appStatusConfig } from '../components/lib/status-config';
+import { REQUIRED_TESTERS, TESTING_PERIOD_DAYS } from '../components/lib/constants';
 
 export default function AppDetail() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const params = new URLSearchParams(window.location.search);
-  const appId = params.get('id');
-  const [user, setUser] = useState(null);
+  const { user } = useOutletContext();
+  const [searchParams] = useSearchParams();
+  const appId = searchParams.get('id');
   const [joining, setJoining] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
-
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
-  }, []);
 
   const { data: app, isLoading: loadingApp } = useQuery({
     queryKey: ['app', appId],
@@ -52,7 +44,7 @@ export default function AppDetail() {
   const daysElapsed = app?.testing_start_date
     ? differenceInDays(new Date(), new Date(app.testing_start_date))
     : 0;
-  const daysRemaining = app?.status === 'TESTING' ? Math.max(14 - daysElapsed, 0) : null;
+  const daysRemaining = app?.status === 'TESTING' ? Math.max(TESTING_PERIOD_DAYS - daysElapsed, 0) : null;
 
   const handleJoinTest = async () => {
     if (isOwner) {
@@ -64,34 +56,43 @@ export default function AppDetail() {
       return;
     }
     setJoining(true);
+    try {
+      await base44.entities.TestSession.create({
+        app_id: appId,
+        app_name: app.app_name,
+        tester_id: user.id,
+        tester_email: user.email,
+        status: 'PENDING_GOOGLE_VERIFICATION',
+        joined_at: new Date().toISOString(),
+      });
 
-    await base44.entities.TestSession.create({
-      app_id: appId,
-      app_name: app.app_name,
-      tester_id: user.id,
-      tester_email: user.email,
-      status: 'PENDING_GOOGLE_VERIFICATION',
-      joined_at: new Date().toISOString(),
-    });
-
-    queryClient.invalidateQueries();
-    navigate(`/Verification?app_id=${appId}`);
-    setJoining(false);
+      queryClient.invalidateQueries({ queryKey: ['app-sessions', appId] });
+      navigate(`/Verification?app_id=${appId}`);
+    } catch (err) {
+      toast.error('Failed to join test.');
+    } finally {
+      setJoining(false);
+    }
   };
 
   const handleLeave = async () => {
     if (!mySession) return;
-    await base44.entities.TestSession.update(mySession.id, {
-      status: 'LEFT',
-      left_at: new Date().toISOString(),
-    });
+    try {
+      await base44.entities.TestSession.update(mySession.id, {
+        status: 'LEFT',
+        left_at: new Date().toISOString(),
+      });
 
-    const newEnrolled = Math.max((app.testers_enrolled || 0) - 1, 0);
-    await base44.entities.App.update(appId, { testers_enrolled: newEnrolled });
+      const newEnrolled = Math.max((app.testers_enrolled || 0) - 1, 0);
+      await base44.entities.App.update(appId, { testers_enrolled: newEnrolled });
 
-    queryClient.invalidateQueries();
-    setShowLeaveModal(false);
-    toast.success('You have left the test.');
+      queryClient.invalidateQueries({ queryKey: ['app-sessions', appId] });
+      queryClient.invalidateQueries({ queryKey: ['app', appId] });
+      setShowLeaveModal(false);
+      toast.success('You have left the test.');
+    } catch (err) {
+      toast.error('Failed to leave test.');
+    }
   };
 
   if (loadingApp) {
@@ -102,7 +103,7 @@ export default function AppDetail() {
     return <div className="text-center py-20 text-muted-foreground">App not found</div>;
   }
 
-  const status = statusConfig[app.status] || statusConfig.WAITING_FOR_TESTERS;
+  const status = appStatusConfig[app.status] || appStatusConfig.WAITING_FOR_TESTERS;
 
   return (
     <div className="space-y-6">
@@ -158,8 +159,8 @@ export default function AppDetail() {
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
             <Users className="w-4 h-4" /> Testers
           </div>
-          <p className="text-2xl font-bold">{enrolledCount} / 12</p>
-          <Progress value={Math.min((enrolledCount / 12) * 100, 100)} className="h-1.5 mt-2" />
+          <p className="text-2xl font-bold">{enrolledCount} / {REQUIRED_TESTERS}</p>
+          <Progress value={Math.min((enrolledCount / REQUIRED_TESTERS) * 100, 100)} className="h-1.5 mt-2" />
         </div>
         <div className="bg-card rounded-2xl border border-border p-5">
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
@@ -168,16 +169,16 @@ export default function AppDetail() {
           <p className="text-2xl font-bold">
             {daysRemaining !== null ? `${daysRemaining}d left` : app.status === 'COMPLETED' ? 'Done' : 'Not started'}
           </p>
-          {daysRemaining !== null && <Progress value={(daysElapsed / 14) * 100} className="h-1.5 mt-2" />}
+          {daysRemaining !== null && <Progress value={(daysElapsed / TESTING_PERIOD_DAYS) * 100} className="h-1.5 mt-2" />}
         </div>
         <div className="bg-card rounded-2xl border border-border p-5">
           <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
             Google Requirement
           </div>
-          <p className={`text-2xl font-bold ${enrolledCount >= 12 && daysElapsed >= 14 ? 'text-green-600' : ''}`}>
-            {enrolledCount >= 12 && daysElapsed >= 14 ? 'Met ✓' : 'In Progress'}
+          <p className={`text-2xl font-bold ${enrolledCount >= REQUIRED_TESTERS && daysElapsed >= TESTING_PERIOD_DAYS ? 'text-green-600' : ''}`}>
+            {enrolledCount >= REQUIRED_TESTERS && daysElapsed >= TESTING_PERIOD_DAYS ? 'Met ✓' : 'In Progress'}
           </p>
-          <p className="text-xs text-muted-foreground mt-1">12 testers × 14 days</p>
+          <p className="text-xs text-muted-foreground mt-1">{REQUIRED_TESTERS} testers × {TESTING_PERIOD_DAYS} days</p>
         </div>
       </div>
 
@@ -187,7 +188,7 @@ export default function AppDetail() {
         open={showLeaveModal}
         onClose={() => setShowLeaveModal(false)}
         onLeave={handleLeave}
-        canLeave={enrolledCount > 12}
+        canLeave={enrolledCount > REQUIRED_TESTERS}
       />
     </div>
   );

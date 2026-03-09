@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,6 @@ function fuzzyMatch(text, target) {
   const normalizedText = normalize(text);
   const normalizedTarget = normalize(target);
   if (normalizedText.includes(normalizedTarget)) return true;
-  // Check partial word overlap (>60% of words match)
   const targetWords = normalizedTarget.split(' ');
   const matchCount = targetWords.filter(w => w.length > 2 && normalizedText.includes(w)).length;
   return targetWords.length > 0 && (matchCount / targetWords.length) >= 0.6;
@@ -35,17 +34,13 @@ function fuzzyMatch(text, target) {
 export default function Verification() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const params = new URLSearchParams(window.location.search);
-  const appId = params.get('app_id');
-  const [user, setUser] = useState(null);
+  const { user } = useOutletContext();
+  const [searchParams] = useSearchParams();
+  const appId = searchParams.get('app_id');
   const [file, setFile] = useState(null);
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
-
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
-  }, []);
 
   const { data: app } = useQuery({
     queryKey: ['app-for-verification', appId],
@@ -68,66 +63,62 @@ export default function Verification() {
     if (!file || !app || !user) return;
     setVerifying(true);
     setError(null);
+    try {
+      const { file_url } = await base44.integrations.Core.UploadFile({ file });
 
-    // Upload file
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-
-    // OCR via LLM
-    const extractedText = await base44.integrations.Core.InvokeLLM({
-      prompt: `Extract ALL text visible in this screenshot. Return the complete text as-is, including any app names, confirmation messages, buttons, and UI text. Do not summarize or interpret.`,
-      file_urls: [file_url],
-      response_json_schema: {
-        type: "object",
-        properties: {
-          extracted_text: { type: "string" }
+      const extractedText = await base44.integrations.Core.InvokeLLM({
+        prompt: `Extract ALL text visible in this screenshot. Return the complete text as-is, including any app names, confirmation messages, buttons, and UI text. Do not summarize or interpret.`,
+        file_urls: [file_url],
+        response_json_schema: {
+          type: "object",
+          properties: {
+            extracted_text: { type: "string" }
+          }
         }
-      }
-    });
-
-    const text = extractedText.extracted_text || '';
-
-    // Check for Google Play confirmation phrase
-    const hasConfirmation = CONFIRMATION_PHRASES.some(phrase => fuzzyMatch(text, phrase));
-
-    // Check for app name
-    const hasAppName = fuzzyMatch(text, app.app_name);
-
-    if (hasConfirmation && hasAppName) {
-      // Find the pending session
-      const sessions = await base44.entities.TestSession.filter({
-        app_id: appId,
-        tester_id: user.id,
       });
-      const pendingSession = sessions.find(s => s.status === 'PENDING_GOOGLE_VERIFICATION');
 
-      if (pendingSession) {
-        const now = new Date().toISOString();
-        await base44.entities.TestSession.update(pendingSession.id, {
-          status: 'ENROLLED',
-          enrolled_at: now,
+      const text = extractedText.extracted_text || '';
+      const hasConfirmation = CONFIRMATION_PHRASES.some(phrase => fuzzyMatch(text, phrase));
+      const hasAppName = fuzzyMatch(text, app.app_name);
+
+      if (hasConfirmation && hasAppName) {
+        const sessions = await base44.entities.TestSession.filter({
+          app_id: appId,
+          tester_id: user.id,
         });
+        const pendingSession = sessions.find(s => s.status === 'PENDING_GOOGLE_VERIFICATION');
 
-        // Update app tester count and potentially start testing
-        const newEnrolled = (app.testers_enrolled || 0) + 1;
-        const updateData = { testers_enrolled: newEnrolled };
-        if (app.status === 'WAITING_FOR_TESTERS') {
-          updateData.status = 'TESTING';
-          updateData.testing_start_date = now;
+        if (pendingSession) {
+          const now = new Date().toISOString();
+          await base44.entities.TestSession.update(pendingSession.id, {
+            status: 'ENROLLED',
+            enrolled_at: now,
+          });
+
+          const newEnrolled = (app.testers_enrolled || 0) + 1;
+          const updateData = { testers_enrolled: newEnrolled };
+          if (app.status === 'WAITING_FOR_TESTERS') {
+            updateData.status = 'TESTING';
+            updateData.testing_start_date = now;
+          }
+          await base44.entities.App.update(appId, updateData);
         }
-        await base44.entities.App.update(appId, updateData);
+
+        queryClient.invalidateQueries({ queryKey: ['app-sessions', appId] });
+        queryClient.invalidateQueries({ queryKey: ['app', appId] });
+        setSuccess(true);
+        toast.success('Verification successful! You are now enrolled.');
+      } else {
+        let msg = 'The uploaded screenshot does not appear to be the Google Play tester confirmation page for this app.';
+        if (!hasConfirmation) msg += ' Could not find a Google Play tester confirmation message.';
+        if (!hasAppName) msg += ` Could not find the app name "${app.app_name}" in the screenshot.`;
+        setError(msg);
       }
-
-      setSuccess(true);
-      queryClient.invalidateQueries();
-      toast.success('Verification successful! You are now enrolled.');
-    } else {
-      let msg = 'The uploaded screenshot does not appear to be the Google Play tester confirmation page for this app.';
-      if (!hasConfirmation) msg += ' Could not find a Google Play tester confirmation message.';
-      if (!hasAppName) msg += ` Could not find the app name "${app.app_name}" in the screenshot.`;
-      setError(msg);
+    } catch (err) {
+      toast.error('Verification failed. Please try again.');
+    } finally {
+      setVerifying(false);
     }
-
-    setVerifying(false);
   };
 
   if (success) {

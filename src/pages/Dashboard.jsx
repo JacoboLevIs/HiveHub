@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery } from '@tanstack/react-query';
@@ -6,39 +6,33 @@ import { FlaskConical, Upload, CheckCircle2, Clock } from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import UploadProgress from '../components/dashboard/UploadProgress';
 import AppCard from '../components/apps/AppCard';
+import { TESTING_PERIOD_DAYS } from '../components/lib/constants';
 
 export default function Dashboard() {
   const { user } = useOutletContext();
-  const [currentUser, setCurrentUser] = useState(null);
-
-  useEffect(() => {
-    base44.auth.me().then(setCurrentUser).catch(() => {});
-  }, []);
 
   const { data: mySessions = [] } = useQuery({
-    queryKey: ['my-sessions', currentUser?.id],
-    queryFn: () => base44.entities.TestSession.filter({ tester_id: currentUser.id }),
-    enabled: !!currentUser?.id,
+    queryKey: ['my-sessions', user?.id],
+    queryFn: () => base44.entities.TestSession.filter({ tester_id: user.id }),
+    enabled: !!user?.id,
   });
 
   const { data: myApps = [] } = useQuery({
-    queryKey: ['my-apps', currentUser?.id],
-    queryFn: () => base44.entities.App.filter({ owner_id: currentUser.id }),
-    enabled: !!currentUser?.id,
+    queryKey: ['my-apps', user?.id],
+    queryFn: () => base44.entities.App.filter({ owner_id: user.id }),
+    enabled: !!user?.id,
   });
 
   const activeSessions = mySessions.filter(s => s.status === 'ENROLLED');
-  const completedSessions = mySessions.filter(s => s.status === 'COMPLETED');
-
-  const testsCompletedSinceUpload = currentUser?.tests_completed_since_last_upload || 0;
-  const totalCompleted = currentUser?.tests_completed_total || 0;
-  const appsUploaded = currentUser?.apps_uploaded_total || 0;
+  const testsCompletedSinceUpload = user?.tests_completed_since_last_upload || 0;
+  const totalCompleted = user?.tests_completed_total || 0;
+  const appsUploaded = user?.apps_uploaded_total || 0;
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">
-          Welcome back{currentUser?.full_name ? `, ${currentUser.full_name.split(' ')[0]}` : ''}
+          Welcome back{user?.full_name ? `, ${user.full_name.split(' ')[0]}` : ''}
         </h1>
         <p className="text-muted-foreground mt-1">Here's your TestHive overview</p>
       </div>
@@ -78,7 +72,7 @@ export default function Dashboard() {
 function ActiveTestRow({ session }) {
   const enrolledDate = session.enrolled_at ? new Date(session.enrolled_at) : null;
   const daysIn = enrolledDate ? Math.floor((Date.now() - enrolledDate.getTime()) / (1000 * 60 * 60 * 24)) : 0;
-  const daysLeft = Math.max(14 - daysIn, 0);
+  const daysLeft = Math.max(TESTING_PERIOD_DAYS - daysIn, 0);
 
   return (
     <div className="bg-card rounded-xl border border-border p-4 flex items-center justify-between">
@@ -88,7 +82,7 @@ function ActiveTestRow({ session }) {
         </div>
         <div>
           <p className="font-medium text-sm">{session.app_name || 'App'}</p>
-          <p className="text-xs text-muted-foreground">Day {daysIn} of 14</p>
+          <p className="text-xs text-muted-foreground">Day {daysIn} of {TESTING_PERIOD_DAYS}</p>
         </div>
       </div>
       <div className="text-right">
@@ -96,7 +90,7 @@ function ActiveTestRow({ session }) {
         <div className="w-20 h-1.5 bg-muted rounded-full mt-1">
           <div
             className="h-full bg-primary rounded-full transition-all"
-            style={{ width: `${Math.min((daysIn / 14) * 100, 100)}%` }}
+            style={{ width: `${Math.min((daysIn / TESTING_PERIOD_DAYS) * 100, 100)}%` }}
           />
         </div>
       </div>

@@ -1,13 +1,8 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
-
-const statusBadge = {
-  PENDING_GOOGLE_VERIFICATION: { label: 'Pending', color: 'bg-amber-100 text-amber-700' },
-  ENROLLED: { label: 'Enrolled', color: 'bg-blue-100 text-blue-700' },
-  COMPLETED: { label: 'Completed', color: 'bg-green-100 text-green-700' },
-  LEFT: { label: 'Left', color: 'bg-gray-100 text-gray-500' },
-};
+import { sessionStatusConfig } from '../lib/status-config';
+import { TESTING_PERIOD_DAYS } from '../lib/constants';
 
 export default function TesterList({ sessions }) {
   const activeSessions = sessions.filter(s => s.status !== 'LEFT');
@@ -27,7 +22,7 @@ export default function TesterList({ sessions }) {
       </div>
       <div className="divide-y divide-border">
         {activeSessions.map(session => {
-          const st = statusBadge[session.status] || statusBadge.ENROLLED;
+          const st = sessionStatusConfig[session.status] || sessionStatusConfig.ENROLLED;
           const daysIn = session.enrolled_at ? differenceInDays(new Date(), new Date(session.enrolled_at)) : 0;
 
           return (
@@ -45,7 +40,7 @@ export default function TesterList({ sessions }) {
               </div>
               <div className="flex items-center gap-3">
                 {session.status === 'ENROLLED' && (
-                  <span className="text-xs text-muted-foreground">Day {daysIn}/14</span>
+                  <span className="text-xs text-muted-foreground">Day {daysIn}/{TESTING_PERIOD_DAYS}</span>
                 )}
                 <Badge className={st.color}>{st.label}</Badge>
               </div>

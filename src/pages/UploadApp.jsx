@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
@@ -10,19 +10,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Upload, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import UploadProgress from '../components/dashboard/UploadProgress';
 import { toast } from 'sonner';
-
-const BOOTSTRAP_LIMIT = 20;
+import { BOOTSTRAP_LIMIT, TESTS_REQUIRED_FOR_UPLOAD } from '../components/lib/constants';
 
 export default function UploadApp() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [user, setUser] = useState(null);
+  const { user } = useOutletContext();
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ app_name: '', playstore_link: '', description: '' });
-
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
-  }, []);
 
   const { data: totalApps = [] } = useQuery({
     queryKey: ['total-apps-count'],
@@ -31,36 +26,41 @@ export default function UploadApp() {
 
   const isBootstrap = totalApps.length < BOOTSTRAP_LIMIT;
   const completedSinceUpload = user?.tests_completed_since_last_upload || 0;
-  const canUpload = isBootstrap || completedSinceUpload >= 3;
+  const canUpload = isBootstrap || completedSinceUpload >= TESTS_REQUIRED_FOR_UPLOAD;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!canUpload) return;
     setSubmitting(true);
+    try {
+      const appData = {
+        ...form,
+        owner_id: user.id,
+        owner_email: user.email,
+        status: 'WAITING_FOR_TESTERS',
+        testers_enrolled: 0,
+        is_bootstrap: isBootstrap,
+      };
 
-    const appData = {
-      ...form,
-      owner_id: user.id,
-      owner_email: user.email,
-      status: 'WAITING_FOR_TESTERS',
-      testers_enrolled: 0,
-      is_bootstrap: isBootstrap,
-    };
+      await base44.entities.App.create(appData);
 
-    await base44.entities.App.create(appData);
+      const newCompletedSince = isBootstrap ? completedSinceUpload : completedSinceUpload - TESTS_REQUIRED_FOR_UPLOAD;
+      const newAppsTotal = (user.apps_uploaded_total || 0) + 1;
 
-    const newCompletedSince = isBootstrap ? completedSinceUpload : completedSinceUpload - 3;
-    const newAppsTotal = (user.apps_uploaded_total || 0) + 1;
+      await base44.auth.updateMe({
+        tests_completed_since_last_upload: Math.max(newCompletedSince, 0),
+        apps_uploaded_total: newAppsTotal,
+      });
 
-    await base44.auth.updateMe({
-      tests_completed_since_last_upload: Math.max(newCompletedSince, 0),
-      apps_uploaded_total: newAppsTotal,
-    });
-
-    queryClient.invalidateQueries();
-    toast.success('App uploaded successfully!');
-    navigate('/Dashboard');
-    setSubmitting(false);
+      queryClient.invalidateQueries({ queryKey: ['my-apps'] });
+      queryClient.invalidateQueries({ queryKey: ['total-apps-count'] });
+      toast.success('App uploaded successfully!');
+      navigate('/Dashboard');
+    } catch (err) {
+      toast.error('Failed to upload app.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -86,7 +86,7 @@ export default function UploadApp() {
           <Lock className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <h3 className="font-semibold text-lg">Upload Locked</h3>
           <p className="text-muted-foreground text-sm mt-1">
-            Complete {3 - completedSinceUpload} more test{3 - completedSinceUpload !== 1 ? 's' : ''} to unlock a new app upload.
+            Complete {TESTS_REQUIRED_FOR_UPLOAD - completedSinceUpload} more test{TESTS_REQUIRED_FOR_UPLOAD - completedSinceUpload !== 1 ? 's' : ''} to unlock a new app upload.
           </p>
         </div>
       ) : (

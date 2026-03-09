@@ -1,12 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Search, Upload, Hexagon, Menu, X, Shield } from 'lucide-react';
-
-const navItems = [
-  { path: '/Dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/BrowseApps', label: 'Browse', icon: Search },
-  { path: '/UploadApp', label: 'Upload', icon: Upload },
-];
+import { Hexagon, Menu, X, Shield } from 'lucide-react';
+import { navItems } from '../lib/nav-items';
 
 export default function MobileNav({ user }) {
   const [open, setOpen] = useState(false);

@@ -1,13 +1,8 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Search, Upload, Hexagon, Shield, LogOut } from 'lucide-react';
+import { Hexagon, Shield, LogOut } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-
-const navItems = [
-  { path: '/Dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/BrowseApps', label: 'Browse Apps', icon: Search },
-  { path: '/UploadApp', label: 'Upload App', icon: Upload },
-];
+import { navItems } from '../lib/nav-items';
 
 export default function Sidebar({ user }) {
   const location = useLocation();

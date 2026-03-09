@@ -5,44 +5,40 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
 import { Shield, Zap, Clock, UserCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '@/lib/AuthContext';
 
 export default function DevMode() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoadingAuth } = useAuth();
 
   useEffect(() => {
-    base44.auth.me().then(u => {
-      setUser(u);
-      setLoading(false);
-      if (u?.role !== 'admin') navigate('/Dashboard');
-    }).catch(() => navigate('/Dashboard'));
-  }, [navigate]);
+    if (!isLoadingAuth && user?.role !== 'admin') {
+      navigate('/Dashboard');
+    }
+  }, [isLoadingAuth, user, navigate]);
 
   const { data: apps = [] } = useQuery({
     queryKey: ['dev-apps'],
     queryFn: () => base44.entities.App.list('-created_date'),
-    enabled: !loading && user?.role === 'admin',
+    enabled: !isLoadingAuth && user?.role === 'admin',
   });
 
   const { data: sessions = [] } = useQuery({
     queryKey: ['dev-sessions'],
     queryFn: () => base44.entities.TestSession.list('-created_date'),
-    enabled: !loading && user?.role === 'admin',
+    enabled: !isLoadingAuth && user?.role === 'admin',
   });
 
   const { data: users = [] } = useQuery({
     queryKey: ['dev-users'],
     queryFn: () => base44.entities.User.list(),
-    enabled: !loading && user?.role === 'admin',
+    enabled: !isLoadingAuth && user?.role === 'admin',
   });
 
-  if (loading) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin" /></div>;
+  if (isLoadingAuth) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin" /></div>;
   if (user?.role !== 'admin') return null;
 
   return (
@@ -74,26 +70,32 @@ function SimulateCompletion({ sessions, apps, users, queryClient }) {
   const handleComplete = async () => {
     if (!selectedSession) return;
     setProcessing(true);
-    const session = enrolledSessions.find(s => s.id === selectedSession);
-    if (!session) { setProcessing(false); return; }
+    try {
+      const session = enrolledSessions.find(s => s.id === selectedSession);
+      if (!session) return;
 
-    await base44.entities.TestSession.update(session.id, {
-      status: 'COMPLETED',
-      completed_at: new Date().toISOString(),
-    });
-
-    const tester = users.find(u => u.id === session.tester_id);
-    if (tester) {
-      await base44.entities.User.update(tester.id, {
-        tests_completed_total: (tester.tests_completed_total || 0) + 1,
-        tests_completed_since_last_upload: (tester.tests_completed_since_last_upload || 0) + 1,
+      await base44.entities.TestSession.update(session.id, {
+        status: 'COMPLETED',
+        completed_at: new Date().toISOString(),
       });
-    }
 
-    queryClient.invalidateQueries();
-    toast.success('Test session marked as completed');
-    setSelectedSession('');
-    setProcessing(false);
+      const tester = users.find(u => u.id === session.tester_id);
+      if (tester) {
+        await base44.entities.User.update(tester.id, {
+          tests_completed_total: (tester.tests_completed_total || 0) + 1,
+          tests_completed_since_last_upload: (tester.tests_completed_since_last_upload || 0) + 1,
+        });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['dev-sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['dev-users'] });
+      toast.success('Test session marked as completed');
+      setSelectedSession('');
+    } catch (err) {
+      toast.error('Failed to complete session.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -131,17 +133,22 @@ function ForceSessionState({ sessions, queryClient }) {
   const handleForce = async () => {
     if (!selectedSession || !newStatus) return;
     setProcessing(true);
-    const update = { status: newStatus };
-    if (newStatus === 'ENROLLED') update.enrolled_at = new Date().toISOString();
-    if (newStatus === 'COMPLETED') update.completed_at = new Date().toISOString();
-    if (newStatus === 'LEFT') update.left_at = new Date().toISOString();
+    try {
+      const update = { status: newStatus };
+      if (newStatus === 'ENROLLED') update.enrolled_at = new Date().toISOString();
+      if (newStatus === 'COMPLETED') update.completed_at = new Date().toISOString();
+      if (newStatus === 'LEFT') update.left_at = new Date().toISOString();
 
-    await base44.entities.TestSession.update(selectedSession, update);
-    queryClient.invalidateQueries();
-    toast.success('Session state updated');
-    setSelectedSession('');
-    setNewStatus('');
-    setProcessing(false);
+      await base44.entities.TestSession.update(selectedSession, update);
+      queryClient.invalidateQueries({ queryKey: ['dev-sessions'] });
+      toast.success('Session state updated');
+      setSelectedSession('');
+      setNewStatus('');
+    } catch (err) {
+      toast.error('Failed to update session state.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -190,24 +197,29 @@ function SimulateTime({ apps, sessions, queryClient }) {
   const handleSimulate = async () => {
     if (!selectedApp) return;
     setProcessing(true);
-    const app = apps.find(a => a.id === selectedApp);
-    if (app && app.testing_start_date) {
-      const pastDate = new Date(new Date(app.testing_start_date).getTime() - parseInt(days) * 24 * 60 * 60 * 1000);
-      await base44.entities.App.update(app.id, {
-        testing_start_date: pastDate.toISOString(),
-      });
+    try {
+      const app = apps.find(a => a.id === selectedApp);
+      if (app && app.testing_start_date) {
+        const pastDate = new Date(new Date(app.testing_start_date).getTime() - parseInt(days) * 24 * 60 * 60 * 1000);
+        await base44.entities.App.update(app.id, {
+          testing_start_date: pastDate.toISOString(),
+        });
 
-      // Also shift enrolled_at for all enrolled sessions
-      const appSessions = sessions.filter(s => s.app_id === app.id && s.enrolled_at);
-      for (const s of appSessions) {
-        const pastEnrolled = new Date(new Date(s.enrolled_at).getTime() - parseInt(days) * 24 * 60 * 60 * 1000);
-        await base44.entities.TestSession.update(s.id, { enrolled_at: pastEnrolled.toISOString() });
+        const appSessions = sessions.filter(s => s.app_id === app.id && s.enrolled_at);
+        await Promise.all(appSessions.map(s => {
+          const pastEnrolled = new Date(new Date(s.enrolled_at).getTime() - parseInt(days) * 24 * 60 * 60 * 1000);
+          return base44.entities.TestSession.update(s.id, { enrolled_at: pastEnrolled.toISOString() });
+        }));
       }
-    }
 
-    queryClient.invalidateQueries();
-    toast.success(`Simulated ${days} days passing`);
-    setProcessing(false);
+      queryClient.invalidateQueries({ queryKey: ['dev-apps'] });
+      queryClient.invalidateQueries({ queryKey: ['dev-sessions'] });
+      toast.success(`Simulated ${days} days passing`);
+    } catch (err) {
+      toast.error('Failed to simulate time.');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   return (
@@ -244,16 +256,21 @@ function BypassUpload({ users, queryClient }) {
   const handleBypass = async () => {
     if (!selectedUser) return;
     setProcessing(true);
-    const u = users.find(usr => usr.id === selectedUser);
-    if (u) {
-      await base44.entities.User.update(u.id, {
-        tests_completed_since_last_upload: (u.tests_completed_since_last_upload || 0) + parseInt(credits),
-        tests_completed_total: (u.tests_completed_total || 0) + parseInt(credits),
-      });
+    try {
+      const u = users.find(usr => usr.id === selectedUser);
+      if (u) {
+        await base44.entities.User.update(u.id, {
+          tests_completed_since_last_upload: (u.tests_completed_since_last_upload || 0) + parseInt(credits),
+          tests_completed_total: (u.tests_completed_total || 0) + parseInt(credits),
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['dev-users'] });
+      toast.success(`Added ${credits} test credits`);
+    } catch (err) {
+      toast.error('Failed to add credits.');
+    } finally {
+      setProcessing(false);
     }
-    queryClient.invalidateQueries();
-    toast.success(`Added ${credits} test credits`);
-    setProcessing(false);
   };
 
   return (

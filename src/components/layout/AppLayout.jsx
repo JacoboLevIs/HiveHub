@@ -1,15 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Outlet } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
 import Sidebar from './Sidebar';
 import MobileNav from './MobileNav';
 
 export default function AppLayout() {
-  const [user, setUser] = useState(null);
-
-  useEffect(() => {
-    base44.auth.me().then(u => setUser(u)).catch(() => {});
-  }, []);
+  const { user } = useAuth();
 
   return (
     <div className="min-h-screen bg-background">
