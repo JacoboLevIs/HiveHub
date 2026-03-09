@@ -36,6 +36,11 @@ const AuthenticatedApp = () => {
 };
 
 const ProtectedRoutes = ({ isLoading, authError, navigateToLogin }) => {
+  const publicPaths = ['/', '/Landing'];
+  const currentPath = window.location.pathname;
+
+  if (publicPaths.includes(currentPath)) return null;
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 flex items-center justify-center">
@@ -48,7 +53,7 @@ const ProtectedRoutes = ({ isLoading, authError, navigateToLogin }) => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      base44.auth.redirectToLogin();
+      base44.auth.redirectToLogin(window.location.href);
       return null;
     }
   }
