@@ -5,7 +5,7 @@ import { Hexagon, CheckCircle2, Users, Clock, ArrowRight, Zap, Shield, Star } fr
 import { Button } from '@/components/ui/button';
 
 export default function Landing() {
-  const handleLogin = () => base44.auth.redirectToLogin('/Dashboard');
+  const handleLogin = () => base44.auth.redirectToLogin();
 
   return (
     <div className="min-h-screen bg-background text-foreground font-inter">
