@@ -18,7 +18,24 @@ import DevMode from './pages/DevMode';
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
 
-  if (isLoadingPublicSettings || isLoadingAuth) {
+  // Always show public routes without waiting for auth
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to="/Landing" replace />} />
+      <Route path="/Landing" element={<Landing />} />
+      <Route path="*" element={
+        <ProtectedRoutes
+          isLoading={isLoadingPublicSettings || isLoadingAuth}
+          authError={authError}
+          navigateToLogin={navigateToLogin}
+        />
+      } />
+    </Routes>
+  );
+};
+
+const ProtectedRoutes = ({ isLoading, authError, navigateToLogin }) => {
+  if (isLoading) {
     return (
       <div className="fixed inset-0 flex items-center justify-center">
         <div className="w-8 h-8 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin"></div>
@@ -37,8 +54,6 @@ const AuthenticatedApp = () => {
 
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/Landing" replace />} />
-      <Route path="/Landing" element={<Landing />} />
       <Route element={<AppLayout />}>
         <Route path="/Dashboard" element={<Dashboard />} />
         <Route path="/BrowseApps" element={<BrowseApps />} />
