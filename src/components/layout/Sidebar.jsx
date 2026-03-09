@@ -66,7 +66,7 @@ export default function Sidebar({ user }) {
           </div>
         </div>
         <button
-          onClick={() => base44.auth.logout('/')}
+          onClick={() => base44.auth.logout('/Landing')}
           className="flex items-center gap-2 px-3 py-2 w-full text-sm text-sidebar-foreground/50 hover:text-sidebar-foreground rounded-lg hover:bg-sidebar-accent transition-colors"
         >
           <LogOut className="w-4 h-4" />
