@@ -48,7 +48,7 @@ const ProtectedRoutes = ({ isLoading, authError, navigateToLogin }) => {
     if (authError.type === 'user_not_registered') {
       return <UserNotRegisteredError />;
     } else if (authError.type === 'auth_required') {
-      navigateToLogin();
+      base44.auth.redirectToLogin();
       return null;
     }
   }
