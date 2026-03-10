@@ -1,12 +1,12 @@
 import React from 'react';
-import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { Hexagon, CheckCircle2, Users, Clock, ArrowRight, Zap, Shield, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { fetchPlatformStats } from '@/services/appService';
 
 export default function Landing() {
-  const handleLogin = () => base44.auth.redirectToLogin();
+  const { navigateToLogin } = useAuth();
 
   const { data: stats } = useQuery({
     queryKey: ['platform-stats'],
@@ -16,7 +16,6 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-inter">
-      {/* Nav */}
       <nav className="flex items-center justify-between px-6 md:px-12 py-5 border-b border-border">
         <div className="flex items-center gap-2.5">
           <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center">
@@ -24,12 +23,11 @@ export default function Landing() {
           </div>
           <span className="text-lg font-bold tracking-tight">TestHive</span>
         </div>
-        <Button onClick={handleLogin} size="sm">
+        <Button onClick={navigateToLogin} size="sm">
           Sign in <ArrowRight className="w-3.5 h-3.5 ml-1" />
         </Button>
       </nav>
 
-      {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10">
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-primary/10 rounded-full blur-3xl opacity-60" />
@@ -49,7 +47,7 @@ export default function Landing() {
             meeting the 12 testers × 14 days requirement to publish on Google Play.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button onClick={handleLogin} size="lg" className="px-8 text-base">
+            <Button onClick={navigateToLogin} size="lg" className="px-8 text-base">
               Get started free <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
             <a href="#how-it-works" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -59,7 +57,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Stats bar */}
       <section className="border-y border-border bg-card">
         <div className="max-w-4xl mx-auto px-6 md:px-12 py-6 grid grid-cols-3 gap-6 text-center">
           {[
@@ -75,7 +72,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* How it works */}
       <section id="how-it-works" className="max-w-4xl mx-auto px-6 md:px-12 py-20">
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold tracking-tight">How TestHive works</h2>
@@ -83,24 +79,9 @@ export default function Landing() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
-            {
-              icon: Users,
-              step: '01',
-              title: 'Test other apps',
-              desc: 'Browse apps that need testers. Enroll, verify via Google Play screenshot, and test for 14 days.',
-            },
-            {
-              icon: Star,
-              step: '02',
-              title: 'Earn credits',
-              desc: 'Each completed 14-day test earns you a credit. Collect 3 credits to unlock your own upload slot.',
-            },
-            {
-              icon: CheckCircle2,
-              step: '03',
-              title: 'Upload your app',
-              desc: 'Submit your app and the community rallies to get you your 12 testers for 14 days.',
-            },
+            { icon: Users, step: '01', title: 'Test other apps', desc: 'Browse apps that need testers. Enroll, verify via Google Play screenshot, and test for 14 days.' },
+            { icon: Star, step: '02', title: 'Earn credits', desc: 'Each completed 14-day test earns you a credit. Collect 3 credits to unlock your own upload slot.' },
+            { icon: CheckCircle2, step: '03', title: 'Upload your app', desc: 'Submit your app and the community rallies to get you your 12 testers for 14 days.' },
           ].map(item => (
             <div key={item.step} className="bg-card rounded-2xl border border-border p-6 relative">
               <span className="absolute top-4 right-4 text-4xl font-extrabold text-border">{item.step}</span>
@@ -114,25 +95,17 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Trust */}
       <section className="bg-card border-y border-border">
         <div className="max-w-4xl mx-auto px-6 md:px-12 py-16">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
             <div>
-              <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-4">
-                Fair, verified, and trustworthy
-              </h2>
+              <h2 className="text-2xl md:text-3xl font-bold tracking-tight mb-4">Fair, verified, and trustworthy</h2>
               <p className="text-muted-foreground leading-relaxed mb-6">
                 Every tester must verify enrollment with a real Google Play screenshot.
-                Our AI checks the confirmation before crediting participation — no cheating.
+                OCR checks the confirmation before crediting participation — no cheating.
               </p>
               <ul className="space-y-3">
-                {[
-                  'AI-powered screenshot verification',
-                  'Minimum tester protection (no app left understaffed)',
-                  'Credit system ensures everyone contributes',
-                  'Bootstrap period for early adopters',
-                ].map(item => (
+                {['OCR-powered screenshot verification', 'Minimum tester protection (no app left understaffed)', 'Credit system ensures everyone contributes', 'Bootstrap period for early adopters'].map(item => (
                   <li key={item} className="flex items-center gap-2.5 text-sm">
                     <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
                     {item}
@@ -169,7 +142,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Social Proof */}
       {stats && (stats.totalDevelopers > 0 || stats.totalApps > 0) && (
         <section className="max-w-4xl mx-auto px-6 md:px-12 py-16">
           <div className="text-center mb-8">
@@ -193,20 +165,14 @@ export default function Landing() {
         </section>
       )}
 
-      {/* CTA */}
       <section className="max-w-4xl mx-auto px-6 md:px-12 py-20 text-center">
-        <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4">
-          Ready to launch your app?
-        </h2>
-        <p className="text-muted-foreground mb-8 text-lg">
-          Join TestHive and get the testers you need — while helping others do the same.
-        </p>
-        <Button onClick={handleLogin} size="lg" className="px-10 text-base">
+        <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-4">Ready to launch your app?</h2>
+        <p className="text-muted-foreground mb-8 text-lg">Join TestHive and get the testers you need — while helping others do the same.</p>
+        <Button onClick={navigateToLogin} size="lg" className="px-10 text-base">
           Join TestHive <ArrowRight className="w-4 h-4 ml-2" />
         </Button>
       </section>
 
-      {/* Footer */}
       <footer className="border-t border-border px-6 md:px-12 py-6 flex items-center justify-between text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <Hexagon className="w-4 h-4 text-primary" />

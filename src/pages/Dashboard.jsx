@@ -1,6 +1,6 @@
 import React from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/api/supabaseClient';
 import { useQuery } from '@tanstack/react-query';
 import { FlaskConical, Upload, CheckCircle2, Clock } from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
@@ -13,13 +13,21 @@ export default function Dashboard() {
 
   const { data: mySessions = [] } = useQuery({
     queryKey: ['my-sessions', user?.id],
-    queryFn: () => base44.entities.TestSession.filter({ tester_id: user.id }),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('test_sessions').select('*').eq('tester_id', user.id);
+      return data || [];
+    },
     enabled: !!user?.id,
   });
 
   const { data: myApps = [] } = useQuery({
     queryKey: ['my-apps', user?.id],
-    queryFn: () => base44.entities.App.filter({ owner_id: user.id }),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('apps').select('*').eq('owner_id', user.id);
+      return data || [];
+    },
     enabled: !!user?.id,
   });
 

@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Hexagon, Shield, LogOut } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { useAuth } from '@/lib/AuthContext';
 import { navItems } from '@/lib/nav-items';
 
 export default function Sidebar({ user }) {
   const location = useLocation();
+  const { logout } = useAuth();
   const isAdmin = user?.role === 'admin';
 
   return (
@@ -61,7 +62,7 @@ export default function Sidebar({ user }) {
           </div>
         </div>
         <button
-          onClick={() => base44.auth.logout('/Landing')}
+          onClick={() => logout('/Landing')}
           className="flex items-center gap-2 px-3 py-2 w-full text-sm text-sidebar-foreground/50 hover:text-sidebar-foreground rounded-lg hover:bg-sidebar-accent transition-colors"
         >
           <LogOut className="w-4 h-4" />

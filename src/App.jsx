@@ -6,7 +6,6 @@ import PageNotFound from './lib/PageNotFound';
 import { AuthProvider, useAuth } from '@/lib/AuthContext';
 import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 
-import { base44 } from '@/api/base44Client';
 import AppLayout from './components/layout/AppLayout';
 import Landing from './pages/Landing';
 import Dashboard from './pages/Dashboard';
@@ -19,7 +18,7 @@ import HistoryPage from './pages/History';
 import Notifications from './pages/Notifications';
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
+  const { isLoadingAuth, isAuthenticated, navigateToLogin } = useAuth();
 
   return (
     <Routes>
@@ -27,15 +26,16 @@ const AuthenticatedApp = () => {
       <Route path="/Landing" element={<Landing />} />
       <Route path="*" element={
         <ProtectedRoutes
-          isLoading={isLoadingPublicSettings || isLoadingAuth}
-          authError={authError}
+          isLoading={isLoadingAuth}
+          isAuthenticated={isAuthenticated}
+          navigateToLogin={navigateToLogin}
         />
       } />
     </Routes>
   );
 };
 
-const ProtectedRoutes = ({ isLoading, authError }) => {
+const ProtectedRoutes = ({ isLoading, isAuthenticated, navigateToLogin }) => {
   const publicPaths = ['/', '/Landing'];
   const currentPath = window.location.pathname;
 
@@ -49,13 +49,9 @@ const ProtectedRoutes = ({ isLoading, authError }) => {
     );
   }
 
-  if (authError) {
-    if (authError.type === 'user_not_registered') {
-      return <UserNotRegisteredError />;
-    } else if (authError.type === 'auth_required') {
-      base44.auth.redirectToLogin(window.location.href);
-      return null;
-    }
+  if (!isAuthenticated) {
+    navigateToLogin();
+    return null;
   }
 
   return (
@@ -66,6 +62,7 @@ const ProtectedRoutes = ({ isLoading, authError }) => {
         <Route path="/UploadApp" element={<UploadApp />} />
         <Route path="/app/:id" element={<AppDetail />} />
         <Route path="/verify/:appId" element={<Verification />} />
+        <Route path="/Verification" element={<Verification />} />
         <Route path="/History" element={<HistoryPage />} />
         <Route path="/Notifications" element={<Notifications />} />
         <Route path="/DevMode" element={<DevMode />} />

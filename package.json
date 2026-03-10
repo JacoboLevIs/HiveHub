@@ -12,8 +12,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@base44/sdk": "^0.8.0",
-    "@base44/vite-plugin": "^1.0.0",
+    "@supabase/supabase-js": "^2.49.1",
     "@hello-pangea/dnd": "^17.0.0",
     "@hookform/resolvers": "^4.1.2",
     "@radix-ui/react-accordion": "^1.2.3",
@@ -74,6 +73,7 @@
     "sonner": "^2.0.1",
     "tailwind-merge": "^3.0.2",
     "tailwindcss-animate": "^1.0.7",
+    "tesseract.js": "^5.1.1",
     "three": "^0.171.0",
     "vaul": "^1.1.2",
     "zod": "^3.24.2"

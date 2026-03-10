@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/api/supabaseClient';
 import { useQuery } from '@tanstack/react-query';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,13 +26,21 @@ export default function HistoryPage() {
 
   const { data: sessions = [], isLoading: loadingSessions } = useQuery({
     queryKey: ['history-sessions', user?.id],
-    queryFn: () => base44.entities.TestSession.filter({ tester_id: user.id }),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('test_sessions').select('*').eq('tester_id', user.id);
+      return data || [];
+    },
     enabled: !!user?.id,
   });
 
   const { data: myApps = [], isLoading: loadingApps } = useQuery({
     queryKey: ['history-apps', user?.id],
-    queryFn: () => base44.entities.App.filter({ owner_id: user.id }),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('apps').select('*').eq('owner_id', user.id);
+      return data || [];
+    },
     enabled: !!user?.id,
   });
 
@@ -82,22 +90,15 @@ export default function HistoryPage() {
               {sortedSessions.map((session) => {
                 const st = sessionStatusBadge[session.status] || sessionStatusBadge.ENROLLED;
                 const dateStr = session.joined_at || session.created_date;
-
                 return (
-                  <Link
-                    key={session.id}
-                    to={`/app/${session.app_id}`}
-                    className="flex items-center justify-between px-5 py-4 hover:bg-muted/50 transition-colors"
-                  >
+                  <Link key={session.id} to={`/app/${session.app_id}`} className="flex items-center justify-between px-5 py-4 hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
                         {session.app_name?.[0]?.toUpperCase() || '?'}
                       </div>
                       <div>
                         <p className="text-sm font-medium">{session.app_name || 'App'}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {dateStr ? format(new Date(dateStr), 'MMM d, yyyy') : 'N/A'}
-                        </p>
+                        <p className="text-xs text-muted-foreground">{dateStr ? format(new Date(dateStr), 'MMM d, yyyy') : 'N/A'}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -118,22 +119,15 @@ export default function HistoryPage() {
             <div className="bg-card rounded-2xl border border-border overflow-hidden divide-y divide-border">
               {sortedApps.map((app) => {
                 const st = appStatusBadge[app.status] || appStatusBadge.WAITING_FOR_TESTERS;
-
                 return (
-                  <Link
-                    key={app.id}
-                    to={`/app/${app.id}`}
-                    className="flex items-center justify-between px-5 py-4 hover:bg-muted/50 transition-colors"
-                  >
+                  <Link key={app.id} to={`/app/${app.id}`} className="flex items-center justify-between px-5 py-4 hover:bg-muted/50 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-lg bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">
                         {app.app_name?.[0]?.toUpperCase() || '?'}
                       </div>
                       <div>
                         <p className="text-sm font-medium">{app.app_name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {app.testers_enrolled || 0}/12 testers
-                        </p>
+                        <p className="text-xs text-muted-foreground">{app.testers_enrolled || 0}/12 testers</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">

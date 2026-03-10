@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '@/lib/AuthContext';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/api/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Bell, CheckCheck, UserPlus, Award, PartyPopper, Loader2 } from 'lucide-react';
@@ -26,12 +26,16 @@ export default function Notifications() {
 
   const { data: notifications = [], isLoading } = useQuery({
     queryKey: ['all-notifications', user?.id],
-    queryFn: () => base44.entities.Notification.filter({ user_id: user.id }),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('notifications').select('*').eq('user_id', user.id);
+      return data || [];
+    },
     enabled: !!user?.id,
   });
 
   const sorted = [...notifications].sort(
-    (a, b) => new Date(b.created_date || b.created_at) - new Date(a.created_date || a.created_at)
+    (a, b) => new Date(b.created_at) - new Date(a.created_at)
   );
 
   const unreadCount = sorted.filter((n) => !n.read).length;
@@ -39,24 +43,22 @@ export default function Notifications() {
   const markAllRead = async () => {
     try {
       const unread = sorted.filter((n) => !n.read);
-      await Promise.all(unread.map((n) => base44.entities.Notification.update(n.id, { read: true })));
+      await Promise.all(
+        unread.map((n) =>
+          supabase.from('notifications').update({ read: true }).eq('id', n.id)
+        )
+      );
       queryClient.invalidateQueries({ queryKey: ['all-notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unread-notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['unread-notifications-mobile'] });
-    } catch {
-      // silent fail
-    }
+    } catch { /* silent */ }
   };
 
   const markOneRead = async (id) => {
     try {
-      await base44.entities.Notification.update(id, { read: true });
+      await supabase.from('notifications').update({ read: true }).eq('id', id);
       queryClient.invalidateQueries({ queryKey: ['all-notifications'] });
       queryClient.invalidateQueries({ queryKey: ['unread-notifications'] });
-      queryClient.invalidateQueries({ queryKey: ['unread-notifications-mobile'] });
-    } catch {
-      // silent fail
-    }
+    } catch { /* silent */ }
   };
 
   if (isLoading) {
@@ -93,16 +95,13 @@ export default function Notifications() {
           {sorted.map((notification) => {
             const Icon = typeIcons[notification.type] || typeIcons.default;
             const colorClass = typeColors[notification.type] || typeColors.default;
-            const timeAgo = notification.created_date || notification.created_at
-              ? formatDistanceToNow(new Date(notification.created_date || notification.created_at), { addSuffix: true })
+            const timeAgo = notification.created_at
+              ? formatDistanceToNow(new Date(notification.created_at), { addSuffix: true })
               : '';
-
             return (
               <div
                 key={notification.id}
-                className={`px-5 py-4 flex items-start gap-4 transition-colors ${
-                  !notification.read ? 'bg-primary/[0.03]' : ''
-                }`}
+                className={`px-5 py-4 flex items-start gap-4 transition-colors ${!notification.read ? 'bg-primary/[0.03]' : ''}`}
                 onClick={() => !notification.read && markOneRead(notification.id)}
                 role="button"
                 tabIndex={0}

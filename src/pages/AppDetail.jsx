@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/api/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Users, Clock, ExternalLink, ArrowLeft, Loader2 } from 'lucide-react';
-import { differenceInDays, format } from 'date-fns';
+import { differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
 import LeaveTestModal from '../components/apps/LeaveTestModal';
 import TesterList from '../components/apps/TesterList';
@@ -25,15 +25,20 @@ export default function AppDetail() {
   const { data: app, isLoading: loadingApp } = useQuery({
     queryKey: ['app', appId],
     queryFn: async () => {
-      const apps = await base44.entities.App.filter({ id: appId });
-      return apps[0];
+      const { data } = await supabase
+        .from('apps').select('*').eq('id', appId).single();
+      return data;
     },
     enabled: !!appId,
   });
 
   const { data: sessions = [] } = useQuery({
     queryKey: ['app-sessions', appId],
-    queryFn: () => base44.entities.TestSession.filter({ app_id: appId }),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('test_sessions').select('*').eq('app_id', appId);
+      return data || [];
+    },
     enabled: !!appId,
   });
 
@@ -47,18 +52,12 @@ export default function AppDetail() {
   const daysRemaining = app?.status === 'TESTING' ? Math.max(TESTING_PERIOD_DAYS - daysElapsed, 0) : null;
 
   const handleJoinTest = async () => {
-    if (isOwner) {
-      toast.error("You can't test your own app");
-      return;
-    }
-    if (mySession) {
-      toast.error('You are already enrolled in this test.');
-      return;
-    }
+    if (isOwner) { toast.error("You can't test your own app"); return; }
+    if (mySession) { toast.error('You are already enrolled in this test.'); return; }
     setJoining(true);
 
     try {
-      await base44.entities.TestSession.create({
+      await supabase.from('test_sessions').insert({
         app_id: appId,
         app_name: app.app_name,
         tester_id: user.id,
@@ -78,15 +77,14 @@ export default function AppDetail() {
 
   const handleLeave = async () => {
     if (!mySession) return;
-
     try {
-      await base44.entities.TestSession.update(mySession.id, {
+      await supabase.from('test_sessions').update({
         status: 'LEFT',
         left_at: new Date().toISOString(),
-      });
+      }).eq('id', mySession.id);
 
       const newEnrolled = Math.max((app.testers_enrolled || 0) - 1, 0);
-      await base44.entities.App.update(appId, { testers_enrolled: newEnrolled });
+      await supabase.from('apps').update({ testers_enrolled: newEnrolled }).eq('id', appId);
 
       queryClient.invalidateQueries({ queryKey: ['app-sessions', appId] });
       queryClient.invalidateQueries({ queryKey: ['app', appId] });

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/api/supabaseClient';
 import { useQuery } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,7 +12,11 @@ export default function BrowseApps() {
 
   const { data: apps = [], isLoading } = useQuery({
     queryKey: ['all-apps'],
-    queryFn: () => base44.entities.App.list('-created_date'),
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('apps').select('*').order('created_date', { ascending: false });
+      return data || [];
+    },
   });
 
   const filteredApps = apps.filter(app => {

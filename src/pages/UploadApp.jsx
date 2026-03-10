@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/api/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,12 +19,15 @@ export default function UploadApp() {
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ app_name: '', playstore_link: '', description: '' });
 
-  const { data: totalApps = [] } = useQuery({
+  const { data: appCount = 0 } = useQuery({
     queryKey: ['total-apps-count'],
-    queryFn: () => base44.entities.App.list(),
+    queryFn: async () => {
+      const { count } = await supabase.from('apps').select('*', { count: 'exact', head: true });
+      return count || 0;
+    },
   });
 
-  const isBootstrap = totalApps.length < BOOTSTRAP_LIMIT;
+  const isBootstrap = appCount < BOOTSTRAP_LIMIT;
   const completedSinceUpload = user?.tests_completed_since_last_upload || 0;
   const canUpload = isBootstrap || completedSinceUpload >= TESTS_REQUIRED_FOR_UPLOAD;
 
@@ -34,24 +37,22 @@ export default function UploadApp() {
     setSubmitting(true);
 
     try {
-      const appData = {
+      await supabase.from('apps').insert({
         ...form,
         owner_id: user.id,
         owner_email: user.email,
         status: 'WAITING_FOR_TESTERS',
         testers_enrolled: 0,
         is_bootstrap: isBootstrap,
-      };
-
-      await base44.entities.App.create(appData);
+      });
 
       const newCompletedSince = isBootstrap ? completedSinceUpload : completedSinceUpload - TESTS_REQUIRED_FOR_UPLOAD;
       const newAppsTotal = (user.apps_uploaded_total || 0) + 1;
 
-      await base44.auth.updateMe({
+      await supabase.from('profiles').update({
         tests_completed_since_last_upload: Math.max(newCompletedSince, 0),
         apps_uploaded_total: newAppsTotal,
-      });
+      }).eq('id', user.id);
 
       queryClient.invalidateQueries({ queryKey: ['my-apps'] });
       queryClient.invalidateQueries({ queryKey: ['total-apps-count'] });
@@ -78,7 +79,7 @@ export default function UploadApp() {
         <Alert className="border-primary/30 bg-primary/5">
           <AlertCircle className="h-4 w-4 text-primary" />
           <AlertDescription className="text-sm">
-            <strong>Bootstrap period:</strong> The first {BOOTSTRAP_LIMIT} apps don't require prior tests. ({totalApps.length}/{BOOTSTRAP_LIMIT} slots used)
+            <strong>Bootstrap period:</strong> The first {BOOTSTRAP_LIMIT} apps don't require prior tests. ({appCount}/{BOOTSTRAP_LIMIT} slots used)
           </AlertDescription>
         </Alert>
       )}

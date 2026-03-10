@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, useOutletContext, useSearchParams } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { supabase } from '@/api/supabaseClient';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Upload, CheckCircle2, XCircle, Loader2, ExternalLink, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { TESTING_PERIOD_DAYS } from '@/lib/constants';
+import { createWorker } from 'tesseract.js';
 
 const CONFIRMATION_PHRASES = [
   "you're now a tester",
@@ -32,6 +33,13 @@ function fuzzyMatch(text, target) {
   return targetWords.length > 0 && (matchCount / targetWords.length) >= 0.6;
 }
 
+async function extractTextFromImage(file) {
+  const worker = await createWorker('eng');
+  const { data: { text } } = await worker.recognize(file);
+  await worker.terminate();
+  return text;
+}
+
 export default function Verification() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -46,8 +54,9 @@ export default function Verification() {
   const { data: app } = useQuery({
     queryKey: ['app-for-verification', appId],
     queryFn: async () => {
-      const apps = await base44.entities.App.filter({ id: appId });
-      return apps[0];
+      const { data } = await supabase
+        .from('apps').select('*').eq('id', appId).single();
+      return data;
     },
     enabled: !!appId,
   });
@@ -66,37 +75,23 @@ export default function Verification() {
     setError(null);
 
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-
-      const extractedText = await base44.integrations.Core.InvokeLLM({
-        prompt: `Extract ALL text visible in this screenshot. Return the complete text as-is, including any app names, confirmation messages, buttons, and UI text. Do not summarize or interpret.`,
-        file_urls: [file_url],
-        response_json_schema: {
-          type: "object",
-          properties: {
-            extracted_text: { type: "string" }
-          }
-        }
-      });
-
-      const text = extractedText.extracted_text || '';
+      const text = await extractTextFromImage(file);
 
       const hasConfirmation = CONFIRMATION_PHRASES.some(phrase => fuzzyMatch(text, phrase));
       const hasAppName = fuzzyMatch(text, app.app_name);
 
       if (hasConfirmation && hasAppName) {
-        const sessions = await base44.entities.TestSession.filter({
-          app_id: appId,
-          tester_id: user.id,
-        });
-        const pendingSession = sessions.find(s => s.status === 'PENDING_GOOGLE_VERIFICATION');
+        const { data: sessions } = await supabase
+          .from('test_sessions').select('*')
+          .eq('app_id', appId).eq('tester_id', user.id);
+        const pendingSession = (sessions || []).find(s => s.status === 'PENDING_GOOGLE_VERIFICATION');
 
         if (pendingSession) {
           const now = new Date().toISOString();
-          await base44.entities.TestSession.update(pendingSession.id, {
+          await supabase.from('test_sessions').update({
             status: 'ENROLLED',
             enrolled_at: now,
-          });
+          }).eq('id', pendingSession.id);
 
           const newEnrolled = (app.testers_enrolled || 0) + 1;
           const updateData = { testers_enrolled: newEnrolled };
@@ -104,7 +99,7 @@ export default function Verification() {
             updateData.status = 'TESTING';
             updateData.testing_start_date = now;
           }
-          await base44.entities.App.update(appId, updateData);
+          await supabase.from('apps').update(updateData).eq('id', appId);
         }
 
         setSuccess(true);
@@ -205,7 +200,7 @@ export default function Verification() {
           {verifying ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              Verifying screenshot...
+              Analyzing screenshot...
             </>
           ) : (
             'Verify Screenshot'
