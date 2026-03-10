@@ -1,7 +1,7 @@
 import React from 'react';
 import { Progress } from '@/components/ui/progress';
 import { Lock, Unlock } from 'lucide-react';
-import { TESTS_REQUIRED_FOR_UPLOAD } from '../lib/constants';
+import { TESTS_REQUIRED_FOR_UPLOAD } from '@/lib/constants';
 
 export default function UploadProgress({ completedSinceLastUpload = 0 }) {
   const progress = Math.min(completedSinceLastUpload, TESTS_REQUIRED_FOR_UPLOAD);

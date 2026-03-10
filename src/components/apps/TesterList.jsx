@@ -1,8 +1,8 @@
 import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { format, differenceInDays } from 'date-fns';
-import { sessionStatusConfig } from '../lib/status-config';
-import { TESTING_PERIOD_DAYS } from '../lib/constants';
+import { sessionStatusConfig } from '@/lib/status-config';
+import { TESTING_PERIOD_DAYS } from '@/lib/constants';
 
 export default function TesterList({ sessions }) {
   const activeSessions = sessions.filter(s => s.status !== 'LEFT');
