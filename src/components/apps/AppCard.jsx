@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Users, Clock, CheckCircle2 } from 'lucide-react';
 import { differenceInDays } from 'date-fns';
-import { appStatusConfig } from '../lib/status-config';
-import { REQUIRED_TESTERS, TESTING_PERIOD_DAYS } from '../lib/constants';
+import { appStatusConfig } from '@/lib/status-config';
+import { REQUIRED_TESTERS, TESTING_PERIOD_DAYS } from '@/lib/constants';
 
 export default function AppCard({ app }) {
   const status = appStatusConfig[app.status] || appStatusConfig.WAITING_FOR_TESTERS;
@@ -15,7 +15,7 @@ export default function AppCard({ app }) {
 
   return (
     <Link
-      to={`/AppDetail?id=${app.id}`}
+      to={`/app/${app.id}`}
       className="block bg-card rounded-2xl border border-border p-5 hover:shadow-lg hover:border-primary/30 transition-all duration-200 group"
     >
       <div className="flex items-start gap-4">
@@ -28,7 +28,7 @@ export default function AppCard({ app }) {
           </h3>
           <p className="text-sm text-muted-foreground mt-0.5 line-clamp-2">{app.description || 'No description'}</p>
           <div className="flex flex-wrap items-center gap-3 mt-3">
-            <Badge variant="outline" className={`text-xs font-medium ${status.color}`}>
+            <Badge variant="outline" className={`text-xs font-medium ${status.color} ${status.borderColor}`}>
               {status.label}
             </Badge>
             <span className="flex items-center gap-1 text-xs text-muted-foreground">

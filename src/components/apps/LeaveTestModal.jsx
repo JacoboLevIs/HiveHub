@@ -9,9 +9,9 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, Loader2 } from 'lucide-react';
 
-export default function LeaveTestModal({ open, onClose, onLeave, canLeave }) {
+export default function LeaveTestModal({ open, onClose, onLeave, canLeave, loading }) {
   return (
     <AlertDialog open={open} onOpenChange={onClose}>
       <AlertDialogContent>
@@ -30,9 +30,14 @@ export default function LeaveTestModal({ open, onClose, onLeave, canLeave }) {
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Stay in Test</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>Stay in Test</AlertDialogCancel>
           {canLeave && (
-            <AlertDialogAction onClick={onLeave} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={onLeave}
+              disabled={loading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {loading && <Loader2 className="w-4 h-4 animate-spin mr-1" />}
               Leave Anyway
             </AlertDialogAction>
           )}

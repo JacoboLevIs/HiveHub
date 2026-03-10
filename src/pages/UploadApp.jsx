@@ -10,7 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Upload, Lock, AlertCircle, Loader2 } from 'lucide-react';
 import UploadProgress from '../components/dashboard/UploadProgress';
 import { toast } from 'sonner';
-import { BOOTSTRAP_LIMIT, TESTS_REQUIRED_FOR_UPLOAD } from '../components/lib/constants';
+import { BOOTSTRAP_LIMIT, TESTS_REQUIRED_FOR_UPLOAD } from '@/lib/constants';
 
 export default function UploadApp() {
   const navigate = useNavigate();
@@ -30,8 +30,9 @@ export default function UploadApp() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!canUpload) return;
+    if (!canUpload || !user) return;
     setSubmitting(true);
+
     try {
       const appData = {
         ...form,
@@ -54,14 +55,17 @@ export default function UploadApp() {
 
       queryClient.invalidateQueries({ queryKey: ['my-apps'] });
       queryClient.invalidateQueries({ queryKey: ['total-apps-count'] });
+      queryClient.invalidateQueries({ queryKey: ['all-apps'] });
       toast.success('App uploaded successfully!');
       navigate('/Dashboard');
-    } catch (err) {
-      toast.error('Failed to upload app.');
+    } catch (error) {
+      toast.error(error.message || 'Failed to upload app. Please try again.');
     } finally {
       setSubmitting(false);
     }
   };
+
+  const remaining = TESTS_REQUIRED_FOR_UPLOAD - completedSinceUpload;
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
@@ -86,7 +90,7 @@ export default function UploadApp() {
           <Lock className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
           <h3 className="font-semibold text-lg">Upload Locked</h3>
           <p className="text-muted-foreground text-sm mt-1">
-            Complete {TESTS_REQUIRED_FOR_UPLOAD - completedSinceUpload} more test{TESTS_REQUIRED_FOR_UPLOAD - completedSinceUpload !== 1 ? 's' : ''} to unlock a new app upload.
+            Complete {remaining} more test{remaining !== 1 ? 's' : ''} to unlock a new app upload.
           </p>
         </div>
       ) : (

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Hexagon, Menu, X, Shield } from 'lucide-react';
-import { navItems } from '../lib/nav-items';
+import { navItems } from '@/lib/nav-items';
 
 export default function MobileNav({ user }) {
   const [open, setOpen] = useState(false);

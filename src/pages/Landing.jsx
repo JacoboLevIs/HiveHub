@@ -1,11 +1,18 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
+import { useQuery } from '@tanstack/react-query';
 import { Hexagon, CheckCircle2, Users, Clock, ArrowRight, Zap, Shield, Star } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { fetchPlatformStats } from '@/services/appService';
 
 export default function Landing() {
   const handleLogin = () => base44.auth.redirectToLogin();
+
+  const { data: stats } = useQuery({
+    queryKey: ['platform-stats'],
+    queryFn: fetchPlatformStats,
+    staleTime: 60000,
+  });
 
   return (
     <div className="min-h-screen bg-background text-foreground font-inter">
@@ -38,7 +45,7 @@ export default function Landing() {
             — together
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto mb-10 leading-relaxed">
-            TestHive is a cooperative platform where Android developers test each other's apps, 
+            TestHive is a cooperative platform where Android developers test each other's apps,
             meeting the 12 testers × 14 days requirement to publish on Google Play.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -116,7 +123,7 @@ export default function Landing() {
                 Fair, verified, and trustworthy
               </h2>
               <p className="text-muted-foreground leading-relaxed mb-6">
-                Every tester must verify enrollment with a real Google Play screenshot. 
+                Every tester must verify enrollment with a real Google Play screenshot.
                 Our AI checks the confirmation before crediting participation — no cheating.
               </p>
               <ul className="space-y-3">
@@ -161,6 +168,30 @@ export default function Landing() {
           </div>
         </div>
       </section>
+
+      {/* Social Proof */}
+      {stats && (stats.totalDevelopers > 0 || stats.totalApps > 0) && (
+        <section className="max-w-4xl mx-auto px-6 md:px-12 py-16">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold tracking-tight">Growing community</h2>
+            <p className="text-muted-foreground mt-2">Developers already using TestHive</p>
+          </div>
+          <div className="grid grid-cols-3 gap-6 text-center">
+            <div className="bg-card rounded-2xl border border-border p-6">
+              <p className="text-3xl md:text-4xl font-extrabold text-primary">{stats.totalDevelopers}</p>
+              <p className="text-sm text-muted-foreground mt-1">Developers</p>
+            </div>
+            <div className="bg-card rounded-2xl border border-border p-6">
+              <p className="text-3xl md:text-4xl font-extrabold text-primary">{stats.totalApps}</p>
+              <p className="text-sm text-muted-foreground mt-1">Apps submitted</p>
+            </div>
+            <div className="bg-card rounded-2xl border border-border p-6">
+              <p className="text-3xl md:text-4xl font-extrabold text-primary">{stats.completedApps}</p>
+              <p className="text-sm text-muted-foreground mt-1">Tests completed</p>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* CTA */}
       <section className="max-w-4xl mx-auto px-6 md:px-12 py-20 text-center">

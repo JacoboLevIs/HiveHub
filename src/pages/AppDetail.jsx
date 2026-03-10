@@ -10,8 +10,8 @@ import { differenceInDays, format } from 'date-fns';
 import { toast } from 'sonner';
 import LeaveTestModal from '../components/apps/LeaveTestModal';
 import TesterList from '../components/apps/TesterList';
-import { appStatusConfig } from '../components/lib/status-config';
-import { REQUIRED_TESTERS, TESTING_PERIOD_DAYS } from '../components/lib/constants';
+import { appStatusConfig } from '@/lib/status-config';
+import { REQUIRED_TESTERS, TESTING_PERIOD_DAYS } from '@/lib/constants';
 
 export default function AppDetail() {
   const navigate = useNavigate();
@@ -56,6 +56,7 @@ export default function AppDetail() {
       return;
     }
     setJoining(true);
+
     try {
       await base44.entities.TestSession.create({
         app_id: appId,
@@ -68,8 +69,8 @@ export default function AppDetail() {
 
       queryClient.invalidateQueries({ queryKey: ['app-sessions', appId] });
       navigate(`/Verification?app_id=${appId}`);
-    } catch (err) {
-      toast.error('Failed to join test.');
+    } catch (error) {
+      toast.error('Failed to join test. Please try again.');
     } finally {
       setJoining(false);
     }
@@ -77,6 +78,7 @@ export default function AppDetail() {
 
   const handleLeave = async () => {
     if (!mySession) return;
+
     try {
       await base44.entities.TestSession.update(mySession.id, {
         status: 'LEFT',
@@ -90,8 +92,8 @@ export default function AppDetail() {
       queryClient.invalidateQueries({ queryKey: ['app', appId] });
       setShowLeaveModal(false);
       toast.success('You have left the test.');
-    } catch (err) {
-      toast.error('Failed to leave test.');
+    } catch (error) {
+      toast.error('Failed to leave test. Please try again.');
     }
   };
 

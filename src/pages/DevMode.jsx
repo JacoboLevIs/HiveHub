@@ -1,45 +1,44 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/lib/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Shield, Zap, Clock, UserCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useAuth } from '@/lib/AuthContext';
 
 export default function DevMode() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { user, isLoadingAuth } = useAuth();
 
-  useEffect(() => {
-    if (!isLoadingAuth && user?.role !== 'admin') {
-      navigate('/Dashboard');
-    }
-  }, [isLoadingAuth, user, navigate]);
+  const isAdmin = user?.role === 'admin';
 
   const { data: apps = [] } = useQuery({
     queryKey: ['dev-apps'],
     queryFn: () => base44.entities.App.list('-created_date'),
-    enabled: !isLoadingAuth && user?.role === 'admin',
+    enabled: !isLoadingAuth && isAdmin,
   });
 
   const { data: sessions = [] } = useQuery({
     queryKey: ['dev-sessions'],
     queryFn: () => base44.entities.TestSession.list('-created_date'),
-    enabled: !isLoadingAuth && user?.role === 'admin',
+    enabled: !isLoadingAuth && isAdmin,
   });
 
   const { data: users = [] } = useQuery({
     queryKey: ['dev-users'],
     queryFn: () => base44.entities.User.list(),
-    enabled: !isLoadingAuth && user?.role === 'admin',
+    enabled: !isLoadingAuth && isAdmin,
   });
 
   if (isLoadingAuth) return <div className="flex justify-center py-20"><Loader2 className="w-6 h-6 animate-spin" /></div>;
-  if (user?.role !== 'admin') return null;
+  if (!isAdmin) {
+    navigate('/Dashboard');
+    return null;
+  }
 
   return (
     <div className="space-y-8">
@@ -70,6 +69,7 @@ function SimulateCompletion({ sessions, apps, users, queryClient }) {
   const handleComplete = async () => {
     if (!selectedSession) return;
     setProcessing(true);
+
     try {
       const session = enrolledSessions.find(s => s.id === selectedSession);
       if (!session) return;
@@ -91,7 +91,7 @@ function SimulateCompletion({ sessions, apps, users, queryClient }) {
       queryClient.invalidateQueries({ queryKey: ['dev-users'] });
       toast.success('Test session marked as completed');
       setSelectedSession('');
-    } catch (err) {
+    } catch (error) {
       toast.error('Failed to complete session.');
     } finally {
       setProcessing(false);
@@ -133,6 +133,7 @@ function ForceSessionState({ sessions, queryClient }) {
   const handleForce = async () => {
     if (!selectedSession || !newStatus) return;
     setProcessing(true);
+
     try {
       const update = { status: newStatus };
       if (newStatus === 'ENROLLED') update.enrolled_at = new Date().toISOString();
@@ -144,7 +145,7 @@ function ForceSessionState({ sessions, queryClient }) {
       toast.success('Session state updated');
       setSelectedSession('');
       setNewStatus('');
-    } catch (err) {
+    } catch (error) {
       toast.error('Failed to update session state.');
     } finally {
       setProcessing(false);
@@ -197,17 +198,19 @@ function SimulateTime({ apps, sessions, queryClient }) {
   const handleSimulate = async () => {
     if (!selectedApp) return;
     setProcessing(true);
+
     try {
       const app = apps.find(a => a.id === selectedApp);
       if (app && app.testing_start_date) {
-        const pastDate = new Date(new Date(app.testing_start_date).getTime() - parseInt(days) * 24 * 60 * 60 * 1000);
+        const shiftMs = parseInt(days) * 24 * 60 * 60 * 1000;
+        const pastDate = new Date(new Date(app.testing_start_date).getTime() - shiftMs);
         await base44.entities.App.update(app.id, {
           testing_start_date: pastDate.toISOString(),
         });
 
         const appSessions = sessions.filter(s => s.app_id === app.id && s.enrolled_at);
         await Promise.all(appSessions.map(s => {
-          const pastEnrolled = new Date(new Date(s.enrolled_at).getTime() - parseInt(days) * 24 * 60 * 60 * 1000);
+          const pastEnrolled = new Date(new Date(s.enrolled_at).getTime() - shiftMs);
           return base44.entities.TestSession.update(s.id, { enrolled_at: pastEnrolled.toISOString() });
         }));
       }
@@ -215,7 +218,7 @@ function SimulateTime({ apps, sessions, queryClient }) {
       queryClient.invalidateQueries({ queryKey: ['dev-apps'] });
       queryClient.invalidateQueries({ queryKey: ['dev-sessions'] });
       toast.success(`Simulated ${days} days passing`);
-    } catch (err) {
+    } catch (error) {
       toast.error('Failed to simulate time.');
     } finally {
       setProcessing(false);
@@ -256,6 +259,7 @@ function BypassUpload({ users, queryClient }) {
   const handleBypass = async () => {
     if (!selectedUser) return;
     setProcessing(true);
+
     try {
       const u = users.find(usr => usr.id === selectedUser);
       if (u) {
@@ -266,7 +270,7 @@ function BypassUpload({ users, queryClient }) {
       }
       queryClient.invalidateQueries({ queryKey: ['dev-users'] });
       toast.success(`Added ${credits} test credits`);
-    } catch (err) {
+    } catch (error) {
       toast.error('Failed to add credits.');
     } finally {
       setProcessing(false);

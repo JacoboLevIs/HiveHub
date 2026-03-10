@@ -2,7 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Hexagon, Shield, LogOut } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { navItems } from '../lib/nav-items';
+import { navItems } from '@/lib/nav-items';
 
 export default function Sidebar({ user }) {
   const location = useLocation();

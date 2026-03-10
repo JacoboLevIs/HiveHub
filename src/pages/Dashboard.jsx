@@ -6,7 +6,7 @@ import { FlaskConical, Upload, CheckCircle2, Clock } from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import UploadProgress from '../components/dashboard/UploadProgress';
 import AppCard from '../components/apps/AppCard';
-import { TESTING_PERIOD_DAYS } from '../components/lib/constants';
+import { TESTING_PERIOD_DAYS } from '@/lib/constants';
 
 export default function Dashboard() {
   const { user } = useOutletContext();
@@ -24,6 +24,7 @@ export default function Dashboard() {
   });
 
   const activeSessions = mySessions.filter(s => s.status === 'ENROLLED');
+
   const testsCompletedSinceUpload = user?.tests_completed_since_last_upload || 0;
   const totalCompleted = user?.tests_completed_total || 0;
   const appsUploaded = user?.apps_uploaded_total || 0;

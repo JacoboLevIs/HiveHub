@@ -15,11 +15,12 @@ import UploadApp from './pages/UploadApp';
 import AppDetail from './pages/AppDetail';
 import Verification from './pages/Verification';
 import DevMode from './pages/DevMode';
+import HistoryPage from './pages/History';
+import Notifications from './pages/Notifications';
 
 const AuthenticatedApp = () => {
-  const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
+  const { isLoadingAuth, isLoadingPublicSettings, authError } = useAuth();
 
-  // Always show public routes without waiting for auth
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/Landing" replace />} />
@@ -28,14 +29,13 @@ const AuthenticatedApp = () => {
         <ProtectedRoutes
           isLoading={isLoadingPublicSettings || isLoadingAuth}
           authError={authError}
-          navigateToLogin={navigateToLogin}
         />
       } />
     </Routes>
   );
 };
 
-const ProtectedRoutes = ({ isLoading, authError, navigateToLogin }) => {
+const ProtectedRoutes = ({ isLoading, authError }) => {
   const publicPaths = ['/', '/Landing'];
   const currentPath = window.location.pathname;
 
@@ -64,8 +64,10 @@ const ProtectedRoutes = ({ isLoading, authError, navigateToLogin }) => {
         <Route path="/Dashboard" element={<Dashboard />} />
         <Route path="/BrowseApps" element={<BrowseApps />} />
         <Route path="/UploadApp" element={<UploadApp />} />
-        <Route path="/AppDetail" element={<AppDetail />} />
-        <Route path="/Verification" element={<Verification />} />
+        <Route path="/app/:id" element={<AppDetail />} />
+        <Route path="/verify/:appId" element={<Verification />} />
+        <Route path="/History" element={<HistoryPage />} />
+        <Route path="/Notifications" element={<Notifications />} />
         <Route path="/DevMode" element={<DevMode />} />
       </Route>
       <Route path="*" element={<PageNotFound />} />

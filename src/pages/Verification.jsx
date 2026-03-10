@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Upload, CheckCircle2, XCircle, Loader2, ExternalLink, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { TESTING_PERIOD_DAYS } from '@/lib/constants';
 
 const CONFIRMATION_PHRASES = [
   "you're now a tester",
@@ -63,6 +64,7 @@ export default function Verification() {
     if (!file || !app || !user) return;
     setVerifying(true);
     setError(null);
+
     try {
       const { file_url } = await base44.integrations.Core.UploadFile({ file });
 
@@ -78,6 +80,7 @@ export default function Verification() {
       });
 
       const text = extractedText.extracted_text || '';
+
       const hasConfirmation = CONFIRMATION_PHRASES.some(phrase => fuzzyMatch(text, phrase));
       const hasAppName = fuzzyMatch(text, app.app_name);
 
@@ -104,9 +107,10 @@ export default function Verification() {
           await base44.entities.App.update(appId, updateData);
         }
 
+        setSuccess(true);
         queryClient.invalidateQueries({ queryKey: ['app-sessions', appId] });
         queryClient.invalidateQueries({ queryKey: ['app', appId] });
-        setSuccess(true);
+        queryClient.invalidateQueries({ queryKey: ['my-sessions'] });
         toast.success('Verification successful! You are now enrolled.');
       } else {
         let msg = 'The uploaded screenshot does not appear to be the Google Play tester confirmation page for this app.';
@@ -116,6 +120,7 @@ export default function Verification() {
       }
     } catch (err) {
       toast.error('Verification failed. Please try again.');
+      setError('An error occurred during verification. Please try again.');
     } finally {
       setVerifying(false);
     }
@@ -129,7 +134,7 @@ export default function Verification() {
         </div>
         <h2 className="text-xl font-bold">Verification Successful!</h2>
         <p className="text-muted-foreground">You are now enrolled as a tester for <strong>{app?.app_name}</strong>.</p>
-        <p className="text-sm text-muted-foreground">Your 14-day testing period has started.</p>
+        <p className="text-sm text-muted-foreground">Your {TESTING_PERIOD_DAYS}-day testing period has started.</p>
         <Button onClick={() => navigate(`/AppDetail?id=${appId}`)}>View App</Button>
       </div>
     );
